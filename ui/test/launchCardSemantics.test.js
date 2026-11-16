@@ -9,7 +9,7 @@ test('editable launch card gates Start on the exact validated fingerprint', asyn
   const card = await source('LaunchCard.jsx')
   assert.match(card, /const fingerprint = launchFingerprint\(draft, chat\)/)
   assert.match(card, /validation\.fingerprint === fingerprint/)
-  assert.match(card, /await preflightRunStart\(built\.body\)/)
+  assert.match(card, /await preflightRunStart\(built\.body, \{ computeTarget \}\)/)
   assert.match(card, /validation_token: validation\.token/)
   assert.match(card, /idempotency_key: operation\.idempotencyKey/,
     'paid Start must carry the identity from the durable operation record, not a fresh key')

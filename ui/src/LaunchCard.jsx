@@ -14,6 +14,8 @@ import {
 import { harnessCodexOneLiner, harnessRunPrompt } from './codexLine.js'
 import { launchStatusOutcome, pollLaunchStatus } from './launchRecovery.js'
 import { launchCostSummary } from './launchCostModel.js'
+import { LaunchComputePicker } from './ComputePicker.jsx'
+import { computeOrigin, computeRunHref } from './computeTargets.js'
 import LazyBoundary from './LazyBoundary.jsx'
 import {
   getSnapshot as getSettingsLaunchGuard, subscribe as subscribeSettingsLaunchGuard,
@@ -194,6 +196,8 @@ export default function LaunchCard({
   const [missingStart, setMissingStart] = useState(false)
   const [hydratedTransportIdentity, setHydratedTransportIdentity] = useState('')
   const [startedRunId, setStartedRunId] = useState('')
+  const [startedTarget, setStartedTarget] = useState('')
+  const [computeOpen, setComputeOpen] = useState(false)
   const [reservedRunId, setReservedRunId] = useState('')
   const [errors, setErrors] = useState({})
   const [notice, setNotice] = useState('Review the proposal, then validate it before starting.')
@@ -203,11 +207,13 @@ export default function LaunchCard({
   // Keep the proposal SIMPLE by default: the editable run settings are collapsed so a user can just Start.
   // "Configure settings" reveals them; they also auto-reveal whenever there is an error to fix.
   const [configOpen, setConfigOpen] = useState(() => retainedConfigOpen === true)
+  const computeTarget = startedRunId ? startedTarget
+    : unknownStart ? (unknownStart.computeTarget || '') : (draft.computeTarget || '')
   const settingsLaunchGuard = useSyncExternalStore(
     subscribeSettingsLaunchGuard, getSettingsLaunchGuard, getSettingsLaunchGuard)
   const settingsRouteActive = typeof location !== 'undefined' && location.hash.startsWith('#/settings')
-  const settingsLaunchBlocked = settingsLaunchGuard.active
-    ? settingsLaunchGuard.blocked : settingsRouteActive
+  const settingsLaunchBlocked = !computeTarget && (settingsLaunchGuard.active
+    ? settingsLaunchGuard.blocked : settingsRouteActive)
   const settingsLaunchReason = settingsLaunchGuard.active
     ? settingsLaunchGuard.reason : 'Settings are still loading. Wait for saved defaults before starting a run.'
   const reactId = useId().replace(/:/g, '')
@@ -273,7 +279,7 @@ export default function LaunchCard({
     setValidating(false); setValidation(null); setStarting(false); setChecking(false)
     const saved = loadLaunchTransport(transportIdentity)
     setStorageBlocked(false); setUnknownStart(null); setDamagedRecovery(null)
-    setMissingStart(false); setStartedRunId(''); setReservedRunId(''); setErrors({})
+    setMissingStart(false); setStartedRunId(''); setStartedTarget(''); setReservedRunId(''); setErrors({})
     if (saved?.invalid) {
       const damaged = listLaunchTransports().find(record => record.invalid
         && record.identity === transportIdentity) || { identity: transportIdentity, storageKey: '', invalid: true }
@@ -284,7 +290,8 @@ export default function LaunchCard({
         : 'Startup recovery storage cannot be inspected safely. Restore session storage access and reload this proposal.' })
       setNotice('Paid Start is blocked. Reset cannot remove this recovery record.')
     } else if (saved) {
-      setUnknownStart({ runId: saved.runId, idempotencyKey: saved.idempotencyKey })
+      setUnknownStart({ runId: saved.runId, idempotencyKey: saved.idempotencyKey,
+        computeTarget: saved.computeTarget })
       setNotice(`Recovered unfinished startup “${saved.runId}” from this tab. Check it; no new launch will be sent.`)
     } else {
       setNotice('Review the proposal, then validate it before starting.')
@@ -299,7 +306,8 @@ export default function LaunchCard({
   const settingsParsed = parseObjectJson(draft.settings_json, 'Settings')
   const driver = launchDriver(draft)
   const agentLine = startedRunId && driver === 'external'
-    ? harnessCodexOneLiner(location.href, harnessRunPrompt(startedRunId, cardLanguage)) : ''
+    ? harnessCodexOneLiner(computeOrigin(startedTarget) || location.href,
+      harnessRunPrompt(startedRunId, cardLanguage)) : ''
   // The first paint (and any in-place identity change) is non-interactive until tab recovery has
   // been read. Otherwise Reset could erase an unresolved paid-Start fence before this effect runs.
   const transportPending = hydratedTransportIdentity !== transportIdentity
@@ -395,7 +403,7 @@ export default function LaunchCard({
     setValidating(true); setValidation(null); setErrors({}); setWarnings([]); setPreview(null)
     setNotice('Validating task, settings, paths, and run name…')
     try {
-      const result = await preflightRunStart(built.body)
+      const result = await preflightRunStart(built.body, { computeTarget })
       if (result?.ok !== true || typeof result.validation_token !== 'string'
           || !result.validation_token.trim()) {
         throw launchProtocolError('The server did not return a valid validation token')
@@ -459,10 +467,12 @@ export default function LaunchCard({
       const keepNavigation = navigationStillOwned(operation)
       setUnknownStart(null)
       setStartedRunId(outcome.runId)
+      setStartedTarget(operation.computeTarget || '')
       const receipt = cleared
         ? `Startup is proven for ${outcome.runId}. This card is locked against another Start.`
         : `Startup is proven for ${outcome.runId}. This card is locked, but tab recovery storage could not be cleared.`
       setNotice(`${receipt}${keepNavigation ? '' : ' Open the started run from this card when ready.'}`)
+      if (operation.computeTarget) return
       // The run may not be readable for a second or two after startup is proven; RunView waits
       // for a run this tab just started instead of calling it "not found" (`freshLaunch.js`).
       // Marked ONCE, here, at the moment it started — before `onStarted`, which may open it — and
@@ -515,6 +525,7 @@ export default function LaunchCard({
     }
     const operation = {
       transportIdentity, runId: String(draft.run_id), idempotencyKey: createIdempotencyKey(),
+      computeTarget,
       ...captureNavigation(),
     }
     startRequestRef.current = operation
@@ -523,7 +534,8 @@ export default function LaunchCard({
       if (!saveLaunchTransport(transportIdentity, operation)) {
         const retained = loadLaunchTransport(transportIdentity)
         if (retained && !retained.invalid) {
-          setUnknownStart({ runId: retained.runId, idempotencyKey: retained.idempotencyKey })
+          setUnknownStart({ runId: retained.runId, idempotencyKey: retained.idempotencyKey,
+            computeTarget: retained.computeTarget })
           setStorageBlocked(false); setErrors({})
           setNotice('An unfinished startup already owns this proposal. Check that exact startup; no new launch was sent.')
         } else {
@@ -538,7 +550,7 @@ export default function LaunchCard({
       setUnknownStart(operation); setMissingStart(false); setErrors({})
       setNotice('Starting this run. Do not submit another launch while this is pending…')
       const result = await startRun({ ...built.body, validation_token: validation.token,
-        idempotency_key: operation.idempotencyKey })
+        idempotency_key: operation.idempotencyKey }, { computeTarget: operation.computeTarget })
       if (startRequestRef.current !== operation
           || transportIdentityRef.current !== operation.transportIdentity) return
       presentStartupResult(result, operation)
@@ -592,6 +604,7 @@ export default function LaunchCard({
       const observation = await pollLaunchStatus(
         remainingMs => getStartStatus(operation.runId, operation.idempotencyKey, {
           requestTimeoutMs: Math.min(5_000, remainingMs),
+          computeTarget: operation.computeTarget,
         }),
         { expectedRunId: operation.runId })
       if (statusRequestRef.current !== requestId
@@ -858,6 +871,14 @@ export default function LaunchCard({
           : t('Validate to see effective limits.')}</dd></div>
       </dl>
     </section>}
+    <section className="asst-launch-section">
+      <button type="button" className="btn xs ghost" aria-expanded={computeOpen}
+        onClick={() => setComputeOpen(open => !open)}>
+        {uiText('Compute target')} · {computeTarget.split(':')[0] || uiText('Local')}
+      </button>
+      {computeOpen && <LaunchComputePicker target={computeTarget} disabled={locked}
+        onChange={value => update({ computeTarget: value })} />}
+    </section>
     <fieldset className="asst-launch-driver" disabled={locked || !settingsParsed.ok}>
       <legend>{uiText('Who drives the run')}</legend>
       <label><input type="radio" name={`launch-${reactId}-driver`} value="looplab"
@@ -1059,9 +1080,13 @@ export default function LaunchCard({
     <div className="asst-perm-actions asst-launch-actions">
       <button type="button" className="btn xs ghost" disabled={locked} onClick={reset}>{t('Reset proposal')}</button>
       {startedRunId
-        ? <button ref={startedActionRef} type="button" className="btn xs primary"
-          onClick={() => { location.hash = `#/run/${encodeURIComponent(startedRunId)}` }}>
-          {t('Open started run')}</button>
+        ? startedTarget
+          ? <a ref={startedActionRef} className="btn xs primary"
+            href={computeRunHref(startedTarget, startedRunId)} target="_blank" rel="noopener noreferrer">
+            {t('Open started run')}</a>
+          : <button ref={startedActionRef} type="button" className="btn xs primary"
+            onClick={() => { location.hash = computeRunHref('', startedRunId) }}>
+            {t('Open started run')}</button>
         : damagedRecovery
         ? <button type="button" className="btn xs ghost" disabled={operationBusy || !damagedRecovery.storageKey}
           onClick={releaseDamagedRecovery}>{t('Release after inspection')}</button>

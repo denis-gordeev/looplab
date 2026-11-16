@@ -10,7 +10,7 @@ vocabulary a client may append is `serve/protocol.py::CONTROL_EVENTS`.
 
 <!-- generated: api routes -->
 
-220 routes on 189 paths; 10 deprecated; 27 with a declared response model.
+224 routes on 193 paths; 10 deprecated; 27 with a declared response model.
 
 ### `/api`
 
@@ -79,6 +79,15 @@ vocabulary a client may append is `serve/protocol.py::CONTROL_EVENTS`.
 | method | path | summary | response model | deprecated |
 |---|---|---|---|---|
 | `GET` | `/api/campaign-runs` | The runs inside the root's CAMPAIGN folders (`<root>/<folder>/<run>`, doc 70 70.1), grouped | — |  |
+
+### `/api/compute`
+
+| method | path | summary | response model | deprecated |
+|---|---|---|---|---|
+| `GET` | `/api/compute` | List the SSH compute targets configured for this installation. | — |  |
+| `GET` | `/api/compute/{target}/gpu` | Test a configured SSH tunnel and read GPU telemetry from its LoopLab instance. | — |  |
+| `POST` | `/api/compute/{target}/start/{phase}` | Validate or submit a run on the selected SSH compute target. | — |  |
+| `GET` | `/api/compute/{target}/start/{run_id}/status` | Read the exact startup receipt from the selected SSH compute target. | — |  |
 
 ### `/api/cross-run`
 

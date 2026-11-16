@@ -28,6 +28,33 @@ keeps the UI and loopback tunnel open. Closing it ends access through that tunne
 controls to pause or stop a run and reconnect to the same run root to check its state. Code, data,
 model credentials and run artifacts are managed on the remote host.
 
+### Choose an SSH target in the web UI
+
+Keep the remote UI and tunnel open on a separate local port:
+
+```bash
+looplab ui --ssh wowsearch --port 18765 \
+  --ssh-directory persistent/Projects/looplab-ssh \
+  --ssh-looplab .venv/bin/looplab --no-build
+```
+
+In a second terminal on the same machine, start your local UI with that tunnel registered:
+
+```bash
+LOOPLAB_COMPUTE_TARGETS='{"wowsearch":18765}' looplab ui
+```
+
+In the local UI, open **Compute target** in the Assistant launch card, then select **wowsearch · SSH**.
+**Test connection** refreshes the GPU list and VRAM. Validate and start from the same card. The remote
+LoopLab instance resolves files, applies its saved settings and owns the run. The started run link
+opens its progress through the tunnel. **Host & GPU** also lets you switch between configured hosts
+to view live telemetry.
+
+Each alias in `LOOPLAB_COMPUTE_TARGETS` maps to a distinct loopback tunnel port. If the remote UI
+requires login, use `{"port":18765,"token_env":"WOWSEARCH_UI_TOKEN"}` as the profile value and set
+that environment variable on the local server. Log in to the remote UI separately when following
+the run link. Open the local GUI in a browser on the machine that owns the tunnel.
+
 ## The untrusted sandbox tier
 
 The sandbox tier is chosen by **trust mode**, not your environment:

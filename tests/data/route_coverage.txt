@@ -34,6 +34,10 @@ GET /api/attention	tests/test_attention.py
 GET /api/auth/status	tests/test_review_capabilities.py
 POST /api/auth/verify	tests/test_review_capabilities.py
 GET /api/campaign-runs	tests/test_campaign_runs.py
+GET /api/compute	tests/test_compute_targets.py
+GET /api/compute/{target}/gpu	tests/test_compute_targets.py
+POST /api/compute/{target}/start/{phase}	tests/test_compute_targets.py
+GET /api/compute/{target}/start/{run_id}/status	tests/test_compute_targets.py
 GET /api/cross-run/atlas	tests/test_cross_run_projection_security.py tests/test_cross_run_server.py tests/test_memory_endpoint.py
 GET /api/cross-run/authored-concepts	tests/test_authored_concepts.py
 GET /api/cross-run/claim-curation-log	tests/test_cross_run_projection_security.py tests/test_cross_run_server.py

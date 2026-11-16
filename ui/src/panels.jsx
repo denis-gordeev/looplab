@@ -36,6 +36,8 @@ import VirtualTimeline from './VirtualTimeline.jsx'
 import { timelineEventKey } from './timelineModel.js'
 import { queuedGenerationControls } from './queue.js'
 import Panel from './PanelShell.jsx'
+import { ComputePicker, computeGpuPath, useComputeTargets } from './ComputePicker.jsx'
+import { gpuPayload } from './computeTargets.js'
 import { PanelResourceNotice } from './PanelResourceNotice.jsx'
 import './overview.css'
 import './report-trust-polish.css'
@@ -412,18 +414,6 @@ function runsPayload(value) {
         || !nullableText(row.label)) invalidPanelPayload()
   }
   return value
-}
-
-function gpuPayload(value) {
-  if (!isRecord(value) || typeof value.available !== 'boolean'
-      || (value.gpus != null && !Array.isArray(value.gpus))) invalidPanelPayload()
-  const gpus = value.gpus || []
-  for (const gpu of gpus) {
-    if (!isRecord(gpu) || !gpu.name || typeof gpu.name !== 'string'
-        || ['util', 'mem_used', 'mem_total', 'temp', 'power'].some(key => !nullableNumber(gpu[key]))) invalidPanelPayload()
-  }
-  if (value.available && !Array.isArray(value.gpus)) invalidPanelPayload()
-  return { available: value.available, gpus }
 }
 
 // A poll and a manual retry share one synchronous lock: interval ticks skip an active request, while
@@ -2548,10 +2538,15 @@ export function RegistryPanel({ state, onClose }) {
 export function GpuPanel({ onClose }) {
   useUILanguage()
 
-  const [resource, retry] = usePanelResource(signal => get('/api/gpu', { signal }), gpuPayload, '', 2000)
+  const catalog = useComputeTargets()
+  const [target, setTarget] = useState('')
+  const [resource, retry] = usePanelResource(signal => get(computeGpuPath(target), { signal }),
+    gpuPayload, target, 2000)
   const data = resource.data
   return (
-    <Panel title={uiText("GPU monitor")} sub="this host · nvidia-smi · live" onClose={onClose} wide>
+    <Panel title={uiText("GPU monitor")} sub="nvidia-smi" onClose={onClose} wide>
+      <ComputePicker catalog={catalog} target={target} onChange={setTarget} />
+      <PanelResourceNotice resource={catalog} label={uiText("Compute target")} onRetry={catalog.retry} />
       <PanelResourceNotice resource={resource} label={uiText("GPU telemetry")} onRetry={retry} />
       {data && !data.available
         ? <div className="notice">{uiText("No GPU / nvidia-smi not available on the server host.")}</div>

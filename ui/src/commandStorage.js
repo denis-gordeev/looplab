@@ -14,6 +14,7 @@ import {
   STORED_ERROR_KEYS, UUID_V4_RE, commandEventForAction, createIdempotencyKey, hasOnlyKeys,
   safeIdentityText, validRunGeneration,
 } from './commandModel.js'
+import { computeOrigin } from './computeTargets.js'
 
 const TRANSPORT_STORAGE_PREFIX = 'll.command-transport.'
 const TRANSPORT_ACTIONS = new Set(['stop', 'finalize', 'resume'])
@@ -55,7 +56,7 @@ const ASSISTANT_ENVELOPE_KEYS = new Set([...RUN_ENVELOPE_KEYS, 'arg', 'nodeGener
 const LOCK_KEYS = new Set([
   'runId', 'source', 'action', 'expectedGeneration', 'idempotencyKey', 'commandId', 'status', 'statusUnavailable', 'updatedAt',
 ])
-const LAUNCH_TRANSPORT_KEYS = new Set(['identity', 'runId', 'idempotencyKey', 'updatedAt'])
+const LAUNCH_TRANSPORT_KEYS = new Set(['identity', 'runId', 'idempotencyKey', 'updatedAt', 'computeTarget'])
 
 const sanitizeStoredError = (error, { strict = false } = {}) => {
   if (!error || typeof error !== 'object' || Array.isArray(error)) {
@@ -140,7 +141,8 @@ const parsedLaunchTransport = (raw, identity) => {
   if (!payload || typeof payload !== 'object' || Array.isArray(payload)
       || !hasOnlyKeys(payload, LAUNCH_TRANSPORT_KEYS)
       || payload.identity !== String(identity) || !safeLaunchText(payload.runId, 255)
-      || !safeLaunchText(payload.idempotencyKey, 200) || !Number.isFinite(payload.updatedAt)) {
+      || !safeLaunchText(payload.idempotencyKey, 200) || !Number.isFinite(payload.updatedAt)
+      || (payload.computeTarget !== undefined && !computeOrigin(payload.computeTarget))) {
     return { invalid: true }
   }
   return payload
@@ -150,6 +152,7 @@ const launchTransportMatches = (record, identity, state) => !!record && !record.
   && record.identity === String(identity)
   && record.runId === String(state?.runId || '')
   && record.idempotencyKey === String(state?.idempotencyKey || '')
+  && (record.computeTarget || '') === (state?.computeTarget || '')
 
 const notifyLaunchTransports = () => {
   if (typeof window === 'undefined' || typeof window.dispatchEvent !== 'function'
@@ -162,10 +165,12 @@ const notifyLaunchTransports = () => {
 export function saveLaunchTransport(identity, state, storage = undefined) {
   const target = transportStorage(storage)
   if (!target || !safeLaunchText(identity, 300) || !safeLaunchText(state?.runId, 255)
-      || !safeLaunchText(state?.idempotencyKey, 200)) return false
+      || !safeLaunchText(state?.idempotencyKey, 200)
+      || (state.computeTarget && !computeOrigin(state.computeTarget))) return false
   const payload = {
     identity: String(identity), runId: String(state.runId),
     idempotencyKey: String(state.idempotencyKey), updatedAt: Date.now(),
+    ...(state.computeTarget ? { computeTarget: state.computeTarget } : {}),
   }
   try {
     const key = launchTransportKey(identity)

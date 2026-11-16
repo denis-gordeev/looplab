@@ -27,6 +27,53 @@ const edit = (input, value) => React.act(async () => {
   input.dispatchEvent(new window.Event('input', { bubbles: true }))
 })
 
+test('SSH target validates on the target and recovers the same remote startup after remount', async () => {
+  const prefix = '/api/compute/wowsearch%3A18765'
+  let postedKey, observedKey
+  const calls = fetchStub({
+    'GET /api/compute': { targets: [{ id: 'wowsearch:18765', label: 'wowsearch' }] },
+    'GET /api/gpu': { available: false },
+    [`GET ${prefix}/gpu`]: { available: true, gpus: [
+      { name: 'NVIDIA L40S', mem_used: 100, mem_total: 46068, util: 0, temp: 25, power: 20 },
+    ] },
+    [`POST ${prefix}/start/preflight`]: ({ init }) => preview(JSON.parse(init.body)),
+    [`POST ${prefix}/start/submit`]: ({ init }) => {
+      postedKey = JSON.parse(init.body).idempotency_key
+      return jsonResponse({ detail: 'reply lost' }, 502)
+    },
+    [`GET ${prefix}/start/guide-demo/status`]: ({ init }) => {
+      observedKey = new Headers(init.headers).get('Idempotency-Key')
+      return { run_id: 'guide-demo', ok: true, status: 'succeeded',
+        started: true, can_retry: false, paid_effect_unknown: false }
+    },
+  })
+  globalThis.fetch = calls
+  let mounted = await harness.mount(Card, { spec, language: 'en' })
+  try {
+    await click(button(mounted, 'Compute target · Local'))
+    await until(() => mounted.container.querySelector('option[value="wowsearch:18765"]'), 'SSH profile')
+    await React.act(async () => {
+      const selector = mounted.container.querySelector('select')
+      selector.value = 'wowsearch:18765'
+      selector.dispatchEvent(new window.Event('change', { bubbles: true }))
+    })
+    await until(() => mounted.container.textContent.includes('NVIDIA L40S'), 'remote GPU telemetry')
+    await click(button(mounted, 'Validate — free'))
+    await until(() => button(mounted, 'Start run')?.disabled === false, 'SSH preflight')
+    await click(button(mounted, 'Start run'))
+    await until(() => button(mounted, 'Check startup')?.disabled === false, 'lost response')
+    await mounted.unmount()
+    mounted = await harness.mount(Card, { spec, language: 'en' })
+    await until(() => button(mounted, 'Check startup')?.disabled === false, 'recovered SSH target')
+    await click(button(mounted, 'Check startup'))
+    await until(() => mounted.container.querySelector('a[href*="18765/#/run/guide-demo"]'), 'remote run link')
+    assert.ok(postedKey)
+    assert.equal(observedKey, postedKey)
+    assert.equal(calls.calls.filter(row => row.method === 'POST').length, 2)
+    assert.equal(location.hash, '')
+  } finally { await mounted.unmount() }
+})
+
 test('next step follows authoritative validation, language and later edits without starting', async () => {
   let complete
   const calls = fetchStub({ 'POST /api/start/preflight': ({ init }) => new Promise(resolve => {

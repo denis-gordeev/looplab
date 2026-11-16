@@ -28,6 +28,7 @@
 // test/apiBarrel.test.js derives the names consumers actually take and proves each one resolves.
 
 import { deadlineRequest } from './requestDeadline.js'
+import { computePath } from './computeTargets.js'
 import {
   _authHeaders, _throw, apiUrl, deadlineGet, get, post, runApiPath, runNodeApiPath, send,
 } from './apiClient.js'
@@ -696,24 +697,30 @@ const launchDeadline = async (read, timeoutMs, code, { submission = false } = {}
   }
 }
 
-export const preflightRunStart = (body, { requestTimeoutMs = LAUNCH_PREFLIGHT_TIMEOUT_MS } = {}) =>
+export const preflightRunStart = (body, {
+  requestTimeoutMs = LAUNCH_PREFLIGHT_TIMEOUT_MS, computeTarget,
+} = {}) =>
   launchDeadline(
-    signal => post('/api/start/preflight', body, { signal }),
+    signal => post(computeTarget ? computePath(computeTarget) + '/start/preflight' : '/api/start/preflight',
+      body, { signal }),
     boundedLaunchTimeout(requestTimeoutMs, LAUNCH_PREFLIGHT_TIMEOUT_MS),
     'LAUNCH_PREFLIGHT_TIMEOUT')
 
 // Exactly one POST leaves for a caller invocation. Any lost/late response is marked ambiguous and
 // recovered only through getStartStatus with the caller's already-durable idempotency key.
-export const startRun = (body, { requestTimeoutMs = LAUNCH_SUBMISSION_TIMEOUT_MS } = {}) =>
+export const startRun = (body, {
+  requestTimeoutMs = LAUNCH_SUBMISSION_TIMEOUT_MS, computeTarget,
+} = {}) =>
   launchDeadline(
-    signal => post('/api/start', body, { signal }),
+    signal => post(computeTarget ? computePath(computeTarget) + '/start/submit' : '/api/start',
+      body, { signal }),
     boundedLaunchTimeout(requestTimeoutMs, LAUNCH_SUBMISSION_TIMEOUT_MS),
     'LAUNCH_SUBMISSION_UNKNOWN', { submission: true })
 
 export const getStartStatus = (runId, idempotencyKey, {
-  requestTimeoutMs = LAUNCH_STATUS_TIMEOUT_MS,
+  requestTimeoutMs = LAUNCH_STATUS_TIMEOUT_MS, computeTarget,
 } = {}) => launchDeadline(
-  signal => get(`/api/start/${encodeURIComponent(runId)}/status`, {
+  signal => get(`${computeTarget ? computePath(computeTarget) : '/api'}/start/${encodeURIComponent(runId)}/status`, {
     cache: 'no-store', signal, headers: { 'Idempotency-Key': String(idempotencyKey || '') },
   }),
   boundedLaunchTimeout(requestTimeoutMs, LAUNCH_STATUS_TIMEOUT_MS),

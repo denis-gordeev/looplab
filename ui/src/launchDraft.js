@@ -143,7 +143,8 @@ const sortObject = value => {
 // the exact payload which received that token; /api/start repeats the authoritative validation.
 export function launchFingerprint(draft, chat = []) {
   const built = buildLaunchBody(draft, chat)
-  return built.ok ? JSON.stringify(sortObject(built.body)) : ''
+  if (!built.ok) return ''
+  return JSON.stringify([draft.computeTarget || '', sortObject(built.body)])
 }
 
 export function runtimeValue(draft, key) {
