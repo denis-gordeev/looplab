@@ -1,9 +1,32 @@
 # Deployment
 
 The local CLI needs **no Docker**, and no network when you pass `--backend toy` (since 2026-08-04
-`backend` defaults to `llm`, so a default run expects a reachable LLM endpoint). This guide covers the two scenarios where extra
-infrastructure matters: the **untrusted sandbox tier** and the **one-command Compose stack** for a
-single-operator, self-hosted setup.
+`backend` defaults to `llm`, so a default run expects a reachable LLM endpoint).
+
+## Run on an SSH host
+
+Install LoopLab with the `[ui]` extra on the compute host. Use a built wheel with bundled UI
+assets, or build them from the remote checkout with Node and npm. Put the task repository, data
+and training environment on that host. LoopLab uses the local OpenSSH configuration, so a host
+alias, SSH identity or jump host configured for ordinary `ssh` also works here.
+
+```bash
+looplab ui --ssh wowsearch
+```
+
+Open `http://127.0.0.1:8765` once the server is ready. Runs started in this browser session use the
+remote engine, its GPU pool and its filesystem paths. The default working directory is the SSH
+user's home. For an editable installation in a dedicated remote checkout, specify both paths:
+
+```bash
+looplab ui --ssh wowsearch --ssh-directory persistent/Projects/looplab \
+  --ssh-looplab .venv/bin/looplab --run-root runs
+```
+
+`--port` chooses the local browser port. `--ssh-port` chooses the remote UI port. The SSH session
+keeps the UI and loopback tunnel open. Closing it ends access through that tunnel. Use the run's
+controls to pause or stop a run and reconnect to the same run root to check its state. Code, data,
+model credentials and run artifacts are managed on the remote host.
 
 ## The untrusted sandbox tier
 

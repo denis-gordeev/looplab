@@ -3015,29 +3015,30 @@ looplab bait-audit RUN_DIR --bait BAIT [--bait-root DIR] [--no-judge] [--model N
 
 ## `ui`
 
-Serve the live React web UI over a directory of run dirs. Requires the `[ui]` extra
-(`pip install -e ".[ui]"`). A separate read/control process — it tails the event log to SSE and
-turns UI actions into appended control events; it never changes the engine.
+Serve the web UI (`pip install -e ".[ui]"`). It streams run events over SSE and appends control events.
 
 ```bash
 looplab ui [--run-root DIR] [--host HOST] [--port PORT] [--root-path PATH] [--build/--no-build] [--rebuild]
+           [--ssh HOST] [--ssh-directory DIR] [--ssh-looplab PATH] [--ssh-port PORT]
 ```
 
 | Option | Default | Description |
 |---|---|---|
 | `--run-root DIR` | `$LOOPLAB_RUN_ROOT` or `runs` | Directory containing run subdirectories |
 | `--host HOST` | `127.0.0.1` | Bind host |
-| `--port PORT` | `8765` | Bind port |
+| `--port PORT` | `8765` | Bind port or local tunnel port with `--ssh` |
 | `--root-path PATH` | `""` | ASGI `root_path` for a non-prefix-stripping proxy; auto-derived from `JUPYTERHUB_SERVICE_PREFIX` when unset |
 | `--build` / `--no-build` | `--build` | Verify/rebuild a missing, unstamped or stale default bundle (needs Node/npm); `--no-build` explicitly serves the existing prebuilt/stale bundle without freshness checks. A publish an earlier process was killed mid-swap is repaired **first, under every flag** (`--build`, `--no-build` and `--rebuild` alike), which needs no toolchain |
 | `--rebuild` | off | Force a fresh `npm run build` even if a bundle already exists |
+| `--ssh HOST` | unset | Run the UI and engine on an SSH host and forward the UI to local loopback |
+| `--ssh-directory DIR` | SSH home directory | Remote working directory, absolute or relative to the remote home |
+| `--ssh-looplab PATH` | `looplab` | Remote executable name or path |
+| `--ssh-port PORT` | `8765` | Remote loopback UI port |
 
-Dependency install plus Vite output are serialized by a required source-root interprocess lock. Freshness is
-rechecked inside that lock, dependency manifest changes trigger reinstall (`npm ci`, with a visible
-`npm install` fallback), and a lock/install/build/moving-input/stamp failure cannot certify or silently serve
-an old bundle under a requested refresh.
+The build lock protects freshness checks, dependency installation and Vite output.
+Dependency changes trigger `npm ci` with an `npm install` fallback. A failed refresh refuses to serve the old bundle.
 
-See the [Web UI](ui.md) guide.
+See the [Web UI](ui.md) and [SSH deployment](deployment.md#run-on-an-ssh-host) guides.
 
 ---
 

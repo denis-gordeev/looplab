@@ -7,12 +7,52 @@ fastapi/uvicorn — the [ui] extra is only needed when one of these commands act
 from __future__ import annotations
 
 import os
+import re
+import shlex
+import subprocess
 from pathlib import Path
 from typing import Optional
 
 import typer
 
 from looplab.cli import app
+
+
+def _ssh_ui(destination: str, directory: Optional[str], executable: str, local_port: int,
+            remote_port: int, run_root: Path, root_path: str, build: bool, rebuild: bool) -> None:
+    if not re.fullmatch(r"(?:[A-Za-z0-9_][A-Za-z0-9_.-]*@)?[A-Za-z0-9_][A-Za-z0-9_.-]*",
+                        destination):
+        raise typer.BadParameter("use an SSH config alias or [user@]hostname", param_hint="--ssh")
+    for port, option in ((local_port, "--port"), (remote_port, "--ssh-port")):
+        if not 1 <= port <= 65535:
+            raise typer.BadParameter("port must be between 1 and 65535", param_hint=option)
+
+    remote = [executable, "ui", "--host", "127.0.0.1", "--port", str(remote_port),
+              "--run-root", run_root.as_posix(), "--build" if build else "--no-build"]
+    if root_path:
+        remote += ["--root-path", root_path]
+    if rebuild:
+        remote.append("--rebuild")
+    command = "exec " + shlex.join(remote)
+    if directory is not None:
+        # Prefix a relative path so a leading dash is never interpreted as a cd option.
+        path = directory if directory.startswith("/") else "./" + directory
+        command = f"cd {shlex.quote(path)} && {command}"
+
+    # One OpenSSH session owns both the loopback forward and the foreground UI. A PTY
+    # lets an interactive Ctrl-C reach the remote UI and closes it with the session.
+    argv = ["ssh", "-tt", "-o", "ExitOnForwardFailure=yes", "-L",
+            f"127.0.0.1:{local_port}:127.0.0.1:{remote_port}", destination, command]
+    typer.echo(f"Starting LoopLab on {destination}. Once ready, open http://127.0.0.1:{local_port}")
+    try:
+        result = subprocess.run(argv, check=False)
+    except FileNotFoundError as exc:
+        raise typer.BadParameter("OpenSSH client executable 'ssh' was not found",
+                                 param_hint="--ssh") from exc
+    except KeyboardInterrupt:
+        raise typer.Exit(130) from None
+    if result.returncode:
+        raise typer.Exit(result.returncode if result.returncode > 0 else 128 - result.returncode)
 
 
 # THE FULL CONTRACT this command's `--help` printed until doc 75 UX-11, verbatim; the help
@@ -35,9 +75,8 @@ from looplab.cli import app
 @app.command()
 def ui(run_root: Path = typer.Option(
            Path(os.environ.get("LOOPLAB_RUN_ROOT", "runs")),
-           help="Directory containing run subdirs. Defaults to $LOOPLAB_RUN_ROOT or ./runs — under "
-                "JupyterHub set LOOPLAB_RUN_ROOT to a persistent home path (e.g. ~/looplab-runs) so "
-                "runs survive a pod cull/restart instead of landing in an ephemeral CWD."),
+           help="Run directory. Defaults to $LOOPLAB_RUN_ROOT or ./runs. Use a persistent path "
+                "to keep runs across JupyterHub restarts."),
        host: str = typer.Option(
            "127.0.0.1",
            help="Bind host. Default: 127.0.0.1. UI login and Host/Origin checks are off unless "
@@ -54,12 +93,25 @@ def ui(run_root: Path = typer.Option(
                                         "use --no-build only to serve it explicitly. --no-build skips the "
                                         "build, not the repair of an interrupted publish."),
        rebuild: bool = typer.Option(False, "--rebuild",
-                                    help="Force a fresh `npm run build` even if a bundle exists.")):
+                                    help="Force a fresh `npm run build` even if a bundle exists."),
+       ssh: Optional[str] = typer.Option(None, help="Run the UI and engine on an SSH host."),
+       ssh_directory: Optional[str] = typer.Option(
+           None, help="Working directory on the SSH host (absolute or relative to its home)."),
+       ssh_looplab: str = typer.Option("looplab", help="Path to LoopLab on the SSH host."),
+       ssh_port: int = typer.Option(8765, help="Remote loopback port with --ssh.")):
     """Serve the web UI over the run directories (needs the [ui] extra: pip install 'looplab[ui]').
 
     It reads each run's event log and turns UI actions into control events; it does not change the
     engine. The UI bundle is built on first launch when Node and npm are available: --no-build serves
     the last good bundle, --rebuild forces a fresh one."""
+    if ssh is not None:
+        if host != "127.0.0.1":
+            raise typer.BadParameter("SSH UI binds to loopback on both machines", param_hint="--host")
+        _ssh_ui(ssh, ssh_directory, ssh_looplab, port, ssh_port, run_root, root_path, build, rebuild)
+        return
+    if ssh_directory is not None or ssh_looplab != "looplab" or ssh_port != 8765:
+        raise typer.BadParameter("SSH-specific options require --ssh")
+
     from looplab.serve.uibuild import (  # no third-party imports; fine before the [ui] check
         ensure_ui_built,
         is_built,
