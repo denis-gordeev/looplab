@@ -20,9 +20,19 @@ import {
   validateCredentialState,
   validateRunConfigSaveAck,
   validateSecretSaveAck,
+  validateSettingsRecord,
   validateSettingsResource,
   validateSettingsSaveAck,
 } from '../src/settingsModel.js'
+
+test('saved LLM connection profiles round-trip as JSON objects', () => {
+  const field = FIELD_BY_KEY.llm_profiles
+  const profiles = { local: { model: 'test', base_url: 'http://localhost:11434/v1' } }
+  assert.deepEqual(coerce(field, JSON.stringify(profiles)), profiles)
+  assert.equal(coerce(field, '[]'), INVALID_SETTING_VALUE)
+  assert.doesNotThrow(() => validateSettingsRecord({ llm_profiles: profiles }, SETTINGS_SCHEMA))
+  assert.throws(() => validateSettingsRecord({ llm_profiles: 'invalid' }, SETTINGS_SCHEMA))
+})
 
 test('every curated essential key exists in the settings schema', () => {
   for (const key of ESSENTIAL_SETTING_KEYS) assert.ok(FIELD_BY_KEY[key], `unknown essential key: ${key}`)
@@ -250,6 +260,7 @@ const validSettingValue = field => {
   if (field.type === 'int') return field.minimum ?? (field.exclusiveMinimum ?? 0) + 1
   if (field.type === 'float') return field.minimum ?? (field.exclusiveMinimum ?? 0) + 0.5
   if (field.type === 'list') return []
+  if (field.type === 'object') return {}
   return field.nullable ? null : ''
 }
 

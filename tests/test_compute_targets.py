@@ -49,3 +49,23 @@ def test_compute_routes_forward_only_to_configured_tunnel(tmp_path, monkeypatch)
 def test_invalid_compute_targets_fail_at_startup(profiles):
     with pytest.raises(ValueError, match="LOOPLAB_COMPUTE_TARGETS"):
         compute.configured_targets(profiles)
+
+
+def test_model_connections_follow_the_compute_host(tmp_path, monkeypatch):
+    monkeypatch.setenv("LOOPLAB_COMPUTE_TARGETS", '{"wowsearch":18765}')
+    monkeypatch.setattr(compute.shutil, "which", lambda name: "/bin/codex" if name == "codex" else None)
+
+    async def forward(target, method, path):
+        assert (target.alias, method, path) == ("wowsearch", "GET", "/api/compute/connections")
+        return {"profiles": ["remote-model"]}
+
+    monkeypatch.setattr(compute, "forward", forward)
+    client = TestClient(make_app(tmp_path))
+    assert client.put("/api/settings", json={"settings": {"llm_profiles": {
+        "local-model": {"model": "test-model", "base_url": "http://127.0.0.1:11434/v1"},
+    }}}).status_code == 200
+    local = client.get("/api/compute/connections").json()
+    assert local["profiles"] == ["local-model"]
+    assert local["agents"]["codex"] is True and local["agents"]["opencode"] is False
+    remote = client.get("/api/compute/wowsearch%3A18765/connections")
+    assert remote.json() == {"profiles": ["remote-model"]}

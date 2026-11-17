@@ -81,6 +81,11 @@ function Field({ idPrefix, f, value, onChange, changed, unsaved, error, granted,
                     onChange={e => set(e.target.value)}>
       {f.options.map(o => <option key={o || '__default'} value={o}>{o === '' ? uiText('Use provider default') : uiText(o)}</option>)}
     </select>
+  } else if (f.type === 'object') {
+    input = <textarea id={inputId} name={f.key} className="text" rows={6}
+      value={value ?? ''} aria-describedby={describedBy} aria-invalid={error ? 'true' : undefined}
+      readOnly={readOnly || interactionDisabled} spellCheck={false}
+      placeholder={f.placeholder || ''} onChange={e => set(e.target.value)} />
   } else if (f.type === 'secret') {
     // Write-only credential: the box is always blank (the value is never sent back from the server).
     input = <div className="sf-secret">

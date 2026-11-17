@@ -6,7 +6,7 @@ import { RAW_SETTINGS_SCHEMA, SETTINGS_SCHEMA } from './settingsSchemaFixture.js
 const validValue = field => field.type === 'bool' ? false : field.type === 'enum' ? field.options[0]
   : field.type === 'secret' ? null : field.type === 'int' ? field.minimum ?? (field.exclusiveMinimum ?? 0) + 1
     : field.type === 'float' ? field.minimum ?? (field.exclusiveMinimum ?? 0) + 0.5
-      : field.type === 'list' ? [] : field.nullable ? null : ''
+      : field.type === 'list' ? [] : field.type === 'object' ? {} : field.nullable ? null : ''
 const defaults = Object.fromEntries(Object.values(SETTINGS_SCHEMA.fieldByKey)
   .map(field => [field.key, validValue(field)]))
 const resource = { settings: defaults, defaults, overrides: {}, settings_revision: 'settings-r1',

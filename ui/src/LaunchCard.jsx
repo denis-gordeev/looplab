@@ -15,6 +15,7 @@ import { harnessCodexOneLiner, harnessRunPrompt } from './codexLine.js'
 import { launchStatusOutcome, pollLaunchStatus } from './launchRecovery.js'
 import { launchCostSummary } from './launchCostModel.js'
 import { LaunchComputePicker } from './ComputePicker.jsx'
+import LaunchConnections from './LaunchConnections.jsx'
 import { computeOrigin, computeRunHref } from './computeTargets.js'
 import LazyBoundary from './LazyBoundary.jsx'
 import {
@@ -198,6 +199,7 @@ export default function LaunchCard({
   const [startedRunId, setStartedRunId] = useState('')
   const [startedTarget, setStartedTarget] = useState('')
   const [computeOpen, setComputeOpen] = useState(false)
+  const [connectionsOpen, setConnectionsOpen] = useState(false)
   const [reservedRunId, setReservedRunId] = useState('')
   const [errors, setErrors] = useState({})
   const [notice, setNotice] = useState('Review the proposal, then validate it before starting.')
@@ -774,9 +776,11 @@ export default function LaunchCard({
   })
   const reviewSettingsInvalid = !settingsParsed.ok || settingsInvalid
   const reviewedBackend = reviewSetting('backend')
+  const modelProfile = reviewSettings?.llm_profile
   const reviewedModel = reviewSettings?.backend === 'toy'
     ? t('Not used (toy backend)')
-    : validatedCurrent && !reviewSettings?.llm_model ? t('Not configured') : reviewSetting('llm_model')
+    : modelProfile || (validatedCurrent && !reviewSettings?.llm_model
+      ? t('Not configured') : reviewSetting('llm_model'))
   const costReview = launchCostSummary(reviewSettings, validatedCurrent, t)
   const reviewRows = [
     { label: 'Run', value: String((validatedCurrent ? preview.run_id : draft.run_id) || t('Missing run name')),
@@ -787,7 +791,8 @@ export default function LaunchCard({
       invalid: targetHasErrors('source') || targetHasErrors('task_file') || taskInvalid },
     { label: 'Backend', value: reviewedBackend,
       invalid: reviewSettingsInvalid || !!errors['settings.backend'] },
-    { label: 'Model', value: reviewedModel,
+    { label: modelProfile && reviewSettings?.backend !== 'toy' ? 'LLM connection' : 'Model',
+      value: reviewedModel,
       invalid: reviewSettingsInvalid || !!errors['settings.llm_model'] },
     { label: 'Run LLM budget (USD)', value: costReview.budget,
       invalid: reviewSettingsInvalid || !!errors['settings.llm_budget_usd'] || !!errors['settings.llm_cost_limit'] },
@@ -888,6 +893,13 @@ export default function LaunchCard({
       {driver === 'external' && <span className="asst-launch-help">
         {uiText('Your coding agent proposes experiments; LoopLab measures them. After Start, copy one Codex line.')}</span>}
     </fieldset>
+    {driver === 'looplab' && <details className="asst-launch-section"
+      onToggle={event => setConnectionsOpen(event.currentTarget.open)}>
+      <summary>{uiText('Models and agents')}</summary>
+      {connectionsOpen && <LaunchConnections target={computeTarget} settings={settingsParsed.value ?? {}}
+        disabled={locked || !settingsParsed.ok}
+        onChange={(key, value) => changeRuntime({ key, label: key, type: 'text' }, value)} />}
+    </details>}
     {hasFieldErrors
       ? <p className="asst-launch-openreason">{t('Proposal details are open so you can fix the highlighted fields.')}</p>
       : <button type="button" className="btn xs ghost asst-launch-configtoggle" aria-expanded={showConfig}

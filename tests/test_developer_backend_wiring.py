@@ -114,6 +114,15 @@ def test_the_external_agent_resolves_the_developer_stage_target_at_its_own_const
     assert developer.model == "ollama/coder-model"
 
 
+def test_opencode_native_model_leaves_the_cli_provider_configuration_in_charge():
+    settings = Settings(backend="llm", developer_backend="opencode", validate_agent=False,
+                        opencode_model="provider/model")
+    developer = external_cli_developer(_script_task(), settings, object(), param_search=False)
+    assert developer.model == "provider/model"
+    assert "opencode.json" not in developer.workdir_files
+    assert developer.spec.env("http://localhost:11434") == {}
+
+
 # ------------------------------------------------------------------------- the best-of-N wrap
 
 def test_best_of_n_wraps_only_above_one_and_only_where_the_answer_is_the_code():

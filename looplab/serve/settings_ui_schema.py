@@ -29,7 +29,7 @@ SETTINGS_UI_SCHEMA_VERSION = 2
 # here reading as if 207 were derived while it is typed, which is the drift it warns about. The
 # unforgeable gate is `SETTINGS_UI_SCHEMA_KEYSET_REVISION` further down; this integer is the
 # human-readable half the docs sentence quotes, and `_load_schema` refuses when the two disagree.
-SETTINGS_UI_SCHEMA_CATALOGUE_FIELD_COUNT = 265
+SETTINGS_UI_SCHEMA_CATALOGUE_FIELD_COUNT = 268
 # On the KEYSET REVISION below: DERIVED, and deliberately no longer a hand-pinned review gate: a
 # bare integer is satisfied by
 # bumping the integer. That is exactly how `asha_live_kill_confidence` — the threshold that now
@@ -434,9 +434,9 @@ SETTINGS_UI_SCHEMA_SETTINGS_FIELD_COUNT = len(Settings.model_fields)
 # 260 -> 262: upstream_author_usd, upstream_advances_per_hour (doc 73 §4.2 G3/G4).
 # 262 -> 263: upstream_verify (doc 73 §4.2 G5, the canary gate).
 # 263 -> 265: upstream_author_rebase, upstream_hint_external (doc 73 §4.3).
-SETTINGS_UI_SCHEMA_KEYSET_REVISION = "f623922c0986e26b2c5814964b0336af713daa8ea7bf25d71f7fc66e2c44278e"
+SETTINGS_UI_SCHEMA_KEYSET_REVISION = "9e9cda95a62948c6d3d101182fd86868adbeb6dacee28c5f6522d5a613b184b6"
 _SCHEMA_PATH = Path(__file__).with_name("settings_ui_schema.json")
-_FIELD_TYPES = frozenset({"bool", "enum", "secret", "int", "float", "list", "text"})
+_FIELD_TYPES = frozenset({"bool", "enum", "secret", "int", "float", "list", "text", "object"})
 _OPTIONAL_TEXT = ("help", "shortHelp", "shortLabel", "placeholder", "warning", "warningTitle", "warningTone")
 _MODEL_BOUND_KEYS = (("ge", "minimum"), ("gt", "exclusiveMinimum"),
                      ("le", "maximum"), ("lt", "exclusiveMaximum"))
@@ -463,7 +463,7 @@ _HOME_RELATIVE_DEFAULT_FIELDS = frozenset({"memory_dir", "knowledge_dir"})
 # but no default check at all. A flipped default on an uncurated field is therefore still reviewable
 # only by a human reading that table.
 _UNCURATED_OPEN_KEYED = frozenset({
-    "agent_control", "agent_stage_base_urls", "agent_stage_models", "llm_profile", "llm_profiles",
+    "agent_control", "agent_stage_base_urls", "agent_stage_models",
     "llm_reasoning_extra", "role_profiles",
     # doc 52 row 19: `{arm: "model-id[@cost]"}` — open arm names cross-referenced against the
     # endpoints the operator runs, the same JSON-blob shape as `agent_stage_models` beside it.

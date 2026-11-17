@@ -97,6 +97,7 @@ export default function HarnessHandoff({ runId, generation, seq, defaultOpen = f
         <h4>{t('1. Configure the MCP process')}</h4>
         <label>{t('MCP client ')}<select value={client} onChange={event => { setClient(event.target.value); setCopied(null) }}>
           <option value="codex">{uiText("Codex")}</option><option value="claude">{uiText("Claude Code")}</option>
+          <option value="opencode">{uiText("OpenCode")}</option>
           <option value="generic">{t('Other MCP client')}</option></select></label>
         <pre>{harnessMcpDescriptor(url, client, { anonymous })}</pre>
         <button type="button" className="btn sm" onClick={copyConfig}>{t('Copy MCP configuration')}</button>
@@ -107,7 +108,8 @@ export default function HarnessHandoff({ runId, generation, seq, defaultOpen = f
         </> : <>
           <p>{client === 'codex' ? t('Place this in a trusted project .codex/config.toml or your user config. env_vars forwards the scoped token from the Codex process environment.')
             : client === 'claude' ? t('Place this in your project .mcp.json. The token placeholder reads the scoped credential from the Claude process environment.')
-              : t("This is a generic stdio descriptor; configure scoped credential forwarding in your client's environment settings.")}{t(' The token value is not included.')}</p>
+              : client === 'opencode' ? uiText('Merge this OpenCode 2 configuration into opencode.jsonc.')
+                : t("This is a generic stdio descriptor; configure scoped credential forwarding in your client's environment settings.")}{t(' The token value is not included.')}</p>
           <p>{t('For a virtual environment, set command to the full looplab executable path on the client machine. Supply the scoped credential and restart the client. harness-mcp refuses a missing token; it never falls back to owner access.')}</p>
           <h4>{t('2. Supply the scoped credential separately')}</h4>
           <p role="status">{value.credential_configured ? t('A harness credential is configured on this server.')

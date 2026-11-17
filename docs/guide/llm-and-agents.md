@@ -28,6 +28,34 @@ after that is optional tuning.
 ### Connect Assistant in the UI
 
 Use a running local model server or a hosted provider with an OpenAI-compatible API.
+
+### Configure connections in the web UI
+
+In **Settings**, set **Model**, **Base URL** and the shared **API key**, then save and select
+**Test active LLM**. Under **All**, use **LLM connection profiles** to save named endpoints:
+
+```json
+{
+  "local": {"model": "qwen3:8b", "base_url": "http://localhost:11434/v1"},
+  "hosted": {"model": "provider-model", "base_url": "https://provider.example/v1",
+             "api_key_env": "HOSTED_API_KEY"}
+}
+```
+
+For a separate profile credential, configure the named variable and its
+`<VARIABLE>_BASE_URL` binding on that LoopLab server. **Default LLM connection** sets the default
+profile. In the Assistant launch card, **Models and agents** lists the profiles saved on the selected
+compute server. A profile can supply the built-in reasoning roles while a CLI supplies the Developer.
+
+Choose **Codex**, **Claude Code**, **OpenCode**, **Aider**, **Goose** or **Continue** as the
+**Developer backend**. **Check CLI installation** checks the PATH on the selected execution host.
+Sign in through the CLI on that host. For OpenCode, set **OpenCode provider/model** to use the
+CLI's configured provider. An empty field uses LoopLab's legacy OpenAI-compatible endpoint setup.
+
+To have the external agent lead the experiment, choose the external agent in **Who drives the run**.
+The running experiment's **Connect external agent** panel generates MCP configuration for Codex,
+Claude Code, OpenCode 2 or another client. The MCP client uses its own account on the machine where
+it runs.
 In **LoopLab → Settings → Essential → Model**, set:
 
 | Field | What to enter |

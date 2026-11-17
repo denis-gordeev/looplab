@@ -4,6 +4,7 @@ from __future__ import annotations
 import json
 import os
 import re
+import shutil
 from dataclasses import dataclass
 from urllib.parse import quote
 
@@ -12,6 +13,7 @@ from fastapi import APIRouter, HTTPException, Request
 from starlette.responses import JSONResponse
 
 from looplab.core.pathsafe import run_child_name_defect
+from looplab.core.config import DEVELOPER_BACKENDS
 from looplab.serve.principal import require_owner
 
 _ENV = "LOOPLAB_COMPUTE_TARGETS"
@@ -92,7 +94,7 @@ async def forward(target: Target, method: str, path: str, **kwargs) -> JSONRespo
                                  "Check its SSH tunnel and LoopLab UI.") from exc
 
 
-def build_router(_srv) -> APIRouter:
+def build_router(srv) -> APIRouter:
     router = APIRouter()
     targets = configured_targets(os.environ.get(_ENV, "{}"))
 
@@ -112,6 +114,26 @@ def build_router(_srv) -> APIRouter:
     async def compute_gpu(request: Request, target: str):
         """Test a configured SSH tunnel and read GPU telemetry from its LoopLab instance."""
         return await forward(resolve(request, target), "GET", "/api/gpu")
+
+    @router.get("/api/compute/connections")
+    def connections(request: Request):
+        """List saved LLM profiles and check CLI availability on this LoopLab host."""
+        require_owner(request, "inspect model connections")
+        settings = srv.settings.resolve_settings(srv.settings.load_ui_settings())
+        return {
+            "profiles": sorted(settings.llm_profiles),
+            "developer_backend": settings.developer_backend,
+            "opencode_model": settings.opencode_model,
+            "agents": {
+                name: shutil.which("cn" if name == "continue" else name) is not None
+                for name in DEVELOPER_BACKENDS if name != "default"
+            },
+        }
+
+    @router.get("/api/compute/{target}/connections")
+    async def remote_connections(request: Request, target: str):
+        """List saved profiles and check CLI availability on a configured SSH host."""
+        return await forward(resolve(request, target), "GET", "/api/compute/connections")
 
     @router.post("/api/compute/{target}/start/{phase}")
     async def compute_start(request: Request, target: str, phase: str):

@@ -197,6 +197,9 @@ function validateKnownSetting(field, value) {
   } else if (field.type === 'list') {
     if (!Array.isArray(value) || value.length > 4096
         || value.some(item => typeof item !== 'string' || item.length > 16_000)) resourceError()
+  } else if (field.type === 'object') {
+    if (!settingsRecord(value)) resourceError()
+    boundedJson(value)
   } else if (field.type === 'secret') {
     if (value !== '***') resourceError()
   } else if (typeof value !== 'string' || value.length > 1_000_000 || /[\u0000]/.test(value)) {

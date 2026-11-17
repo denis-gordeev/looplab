@@ -35,6 +35,8 @@ GET /api/auth/status	tests/test_review_capabilities.py
 POST /api/auth/verify	tests/test_review_capabilities.py
 GET /api/campaign-runs	tests/test_campaign_runs.py
 GET /api/compute	tests/test_compute_targets.py
+GET /api/compute/connections	tests/test_compute_targets.py
+GET /api/compute/{target}/connections	tests/test_compute_targets.py
 GET /api/compute/{target}/gpu	tests/test_compute_targets.py
 POST /api/compute/{target}/start/{phase}	tests/test_compute_targets.py
 GET /api/compute/{target}/start/{run_id}/status	tests/test_compute_targets.py
@@ -188,7 +190,7 @@ POST /api/scope-report-actions/{action_id}/abandon	tests/test_report.py
 GET /api/scope-report/{scope_type}/{scope_id:path}	tests/test_report.py
 POST /api/scope-report/{scope_type}/{scope_id:path}/generate	tests/test_comparison_contract_pipeline.py tests/test_report.py
 GET /api/settings	tests/test_external_run_mode.py tests/test_provider_error_redaction.py tests/test_secret_settings.py tests/test_server.py
-PUT /api/settings	tests/test_concept_shelf.py tests/test_external_run_mode.py tests/test_memory_endpoint.py tests/test_server.py
+PUT /api/settings	tests/test_compute_targets.py tests/test_concept_shelf.py tests/test_external_run_mode.py tests/test_memory_endpoint.py tests/test_server.py
 GET /api/settings/schema/{version}	tests/test_server.py tests/test_settings_ui_schema.py
 PUT /api/settings/secret	tests/test_secret_settings.py tests/test_server.py
 GET /api/shared-tests/{test_id}	tests/test_campaign_protocol.py

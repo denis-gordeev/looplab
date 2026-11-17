@@ -27,6 +27,43 @@ const edit = (input, value) => React.act(async () => {
   input.dispatchEvent(new window.Event('input', { bubbles: true }))
 })
 
+test('model and agent selectors write the launch settings checked by preflight', async () => {
+  let submitted
+  globalThis.fetch = fetchStub({
+    'GET /api/compute/connections': {
+      profiles: ['custom'], developer_backend: 'default', opencode_model: null,
+      agents: { opencode: true },
+    },
+    'POST /api/start/preflight': ({ init }) => {
+      submitted = JSON.parse(init.body)
+      return preview(submitted)
+    },
+  })
+  const mounted = await harness.mount(Card, { spec, language: 'en' })
+  try {
+    const summary = [...mounted.container.querySelectorAll('summary')]
+      .find(node => node.textContent === 'Models and agents')
+    await React.act(async () => {
+      summary.parentElement.open = true
+      summary.parentElement.dispatchEvent(new window.Event('toggle'))
+    })
+    await until(() => mounted.container.querySelector('option[value="custom"]'), 'saved model profile')
+    for (const choice of ['custom', 'opencode']) {
+      await React.act(async () => {
+        const select = mounted.container.querySelector(`option[value="${choice}"]`).parentElement
+        select.value = choice
+        select.dispatchEvent(new window.Event('change', { bubbles: true }))
+      })
+    }
+    await edit(mounted.container.querySelector('input[placeholder="provider/model"]'), 'native/model')
+    await click(button(mounted, 'Validate — free'))
+    await until(() => !!submitted, 'model and CLI sent to preflight')
+    assert.equal(submitted.settings.llm_profile, 'custom')
+    assert.equal(submitted.settings.developer_backend, 'opencode')
+    assert.equal(submitted.settings.opencode_model, 'native/model')
+  } finally { await mounted.unmount() }
+})
+
 test('SSH target validates on the target and recovers the same remote startup after remount', async () => {
   const prefix = '/api/compute/wowsearch%3A18765'
   let postedKey, observedKey

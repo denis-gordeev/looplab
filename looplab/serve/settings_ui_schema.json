@@ -1089,6 +1089,21 @@
           "shortHelp": "Leave blank to keep the saved key. Local endpoints may need no key. A new key is saved together with its endpoint binding."
         },
         {
+          "key": "llm_profiles",
+          "label": "LLM connection profiles",
+          "type": "object",
+          "default": {},
+          "help": "Save named OpenAI-compatible connections with model, base_url and optional api_key_env. Enter environment variable names only.",
+          "placeholder": "{\"local\": {\"model\": \"qwen3:8b\", \"base_url\": \"http://localhost:11434/v1\"}}"
+        },
+        {
+          "key": "llm_profile",
+          "label": "Default LLM connection",
+          "type": "text",
+          "default": null,
+          "help": "Name of the saved connection to use by default. Leave blank to use Model and Base URL."
+        },
+        {
           "key": "llm_temperature",
           "label": "Temperature",
           "type": "float",
@@ -1593,6 +1608,8 @@
           "type": "enum",
           "options": [
             "default",
+            "codex",
+            "claude",
             "opencode",
             "aider",
             "goose",
@@ -1600,6 +1617,13 @@
           ],
           "default": "default",
           "help": "default = in-house templated/LLM developer; or drive an external CLI coding agent."
+        },
+        {
+          "key": "opencode_model",
+          "label": "OpenCode provider/model",
+          "type": "text",
+          "default": null,
+          "help": "Use this provider/model from the OpenCode configuration on the execution host. Leave blank to use the LoopLab endpoint."
         },
         {
           "key": "best_of_n",

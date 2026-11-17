@@ -2491,6 +2491,7 @@ class Settings(BaseSettings):
     # re-propose must vary). Off by default (most role calls run at temperature>0 anyway).
     llm_cache: bool = False
     agent_cmd: str | None = None  # override the agent's launcher (path / wrapper)
+    opencode_model: str | None = None  # native OpenCode provider/model
     # External-agent validation (ADR-7): wrap a CLI-agent Developer with a validator that audits
     # each output (no-op/syntax/crash/timeout), retries with feedback, and falls back to the task's
     # original in-process Developer (LLM writer, deterministic/template, or repo baseline). Off ->
@@ -3734,6 +3735,8 @@ class Settings(BaseSettings):
         self._check_case_insensitive_enum_fields()
         self._check_member_fields()
         self._check_llm_profiles()
+        if self.opencode_model and not re.fullmatch(r"[^\s/]+/[^\s]+", self.opencode_model):
+            raise ValueError("opencode_model must be an OpenCode provider/model ID")
         if self.external_harness and self.backend != "toy":
             raise ValueError("external_harness requires backend=toy; the external agent owns reasoning")
         return self

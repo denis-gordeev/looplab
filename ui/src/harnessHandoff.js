@@ -84,6 +84,11 @@ env = { LOOPLAB_HARNESS_URL = ${JSON.stringify(url)} }`
     env: anonymous ? { LOOPLAB_HARNESS_URL: url }
       : { LOOPLAB_HARNESS_URL: url, LOOPLAB_HARNESS_TOKEN: '${LOOPLAB_HARNESS_TOKEN:-}' },
   } } }, null, 2)
+  if (client === 'opencode') return JSON.stringify({ mcp: { servers: { looplab: {
+    type: 'local', command: ['looplab', 'harness-mcp'],
+    environment: anonymous ? { LOOPLAB_HARNESS_URL: url }
+      : { LOOPLAB_HARNESS_URL: url, LOOPLAB_HARNESS_TOKEN: '{env:LOOPLAB_HARNESS_TOKEN}' },
+  } } } }, null, 2)
   if (client !== 'generic') throw new Error('Unknown MCP client')
   return JSON.stringify({ command: 'looplab', args: ['harness-mcp'],
     env: { LOOPLAB_HARNESS_URL: url } }, null, 2)

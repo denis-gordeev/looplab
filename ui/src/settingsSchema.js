@@ -2,7 +2,7 @@ import { deadlineGet } from './api.js'
 
 export const SETTINGS_SCHEMA_VERSION = 2
 const SETTINGS_SCHEMA_TIMEOUT_MS = 15_000
-const FIELD_TYPES = new Set(['bool', 'enum', 'secret', 'int', 'float', 'list', 'text'])
+const FIELD_TYPES = new Set(['bool', 'enum', 'secret', 'int', 'float', 'list', 'text', 'object'])
 const OPTIONAL_TEXT = ['help', 'shortHelp', 'shortLabel', 'placeholder', 'warning', 'warningTitle', 'warningTone']
 const NUMERIC_BOUNDS = ['minimum', 'exclusiveMinimum', 'maximum', 'exclusiveMaximum']
 const record = value => value !== null && typeof value === 'object' && !Array.isArray(value)
@@ -228,6 +228,13 @@ export function parseSettingValue(field, raw, { allowClear = true } = {}) {
   if (field.type === 'list') {
     return { valid: true, value: String(raw).split(',').map(s => s.trim()).filter(Boolean), error: '' }
   }
+  if (field.type === 'object') {
+    try {
+      const value = JSON.parse(raw)
+      if (record(value)) return { valid: true, value, error: '' }
+    } catch { /* Keep the draft available for correction. */ }
+    return { valid: false, value: INVALID_SETTING_VALUE, error: 'Enter a valid JSON object.' }
+  }
   return { valid: true, value: raw, error: '' }   // text / enum
 }
 
@@ -270,6 +277,7 @@ export function toForm(settings, schema) {
     if (f.type === 'secret') out[k] = ''
     else if (f.type === 'bool') out[k] = !!v
     else if (f.type === 'list') out[k] = Array.isArray(v) ? v.join(', ') : (v ?? '')
+    else if (f.type === 'object') out[k] = v == null ? '' : JSON.stringify(v, null, 2)
     else out[k] = v == null ? '' : v
   }
   return out

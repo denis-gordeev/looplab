@@ -129,6 +129,8 @@ def external_cli_developer(task: TaskAdapter, settings, developer, *, param_sear
 
     if settings.developer_backend not in PRESETS or param_search:
         return None
+    from dataclasses import replace
+
     from looplab.agents.cli_agent import CliAgentDeveloper, external_notice_kwargs, opencode_config
     # An EXTERNAL coding agent carries its own `.model`/`.host` — it has no role `.client` for
     # `_set_role_client` to rebind (that helper explicitly skips clientless objects, naming this
@@ -140,8 +142,13 @@ def external_cli_developer(task: TaskAdapter, settings, developer, *, param_sear
     agent_model = _agent_model(settings.developer_backend, dev_target.model)
     # OpenCode alone needs a local provider config; native coding CLIs use their own login/model.
     workdir_files = {}
+    spec = PRESETS[settings.developer_backend]
     if settings.developer_backend == "opencode":
-        workdir_files["opencode.json"] = opencode_config(dev_base_url, agent_model)
+        if settings.opencode_model:
+            agent_model = settings.opencode_model
+            spec = replace(spec, env=lambda _host: {})
+        else:
+            workdir_files["opencode.json"] = opencode_config(dev_base_url, agent_model)
     # RepoTask: the agent edits an existing repo (seed_dir) within its edit-surface;
     # the validator runs in repo_mode and the fallback is the task's baseline developer.
     repo_spec_fn = getattr(task, "repo_spec", None)
@@ -157,7 +164,7 @@ def external_cli_developer(task: TaskAdapter, settings, developer, *, param_sear
     agent_developer = CliAgentDeveloper(
         model=agent_model,
         base_url=dev_base_url, brief=brief,
-        spec=PRESETS[settings.developer_backend],
+        spec=spec,
         cmd_override=([settings.agent_cmd] if settings.agent_cmd else None),
         timeout=settings.agent_timeout, workdir_files=workdir_files,
         patch_gate=(settings.agent_patch_gate or bool(repo_spec)),
