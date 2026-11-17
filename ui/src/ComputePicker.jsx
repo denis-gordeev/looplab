@@ -1,8 +1,31 @@
 import React from 'react'
 import { get } from './apiClient.js'
-import { computeCatalog, computePath, gpuPayload } from './computeTargets.js'
+import { computeOrigin, computePath } from './computeTargets.js'
 import { useScopedResource } from './useScopedResource.js'
 import { uiMessage, uiText, useUILanguage } from './uiLanguage.js'
+
+import { invalidPanelPayload, isRecord, nullableNumber } from './panelPrimitives.js'
+
+function computeCatalog(value) {
+  if (!Array.isArray(value?.targets) || value.targets.some(target =>
+    !computeOrigin(target?.id) || typeof target?.label !== 'string')) {
+    invalidPanelPayload()
+  }
+  return value.targets
+}
+export function gpuPayload(value) {
+  if (!isRecord(value) || typeof value.available !== 'boolean'
+      || (value.gpus != null && !Array.isArray(value.gpus))) invalidPanelPayload()
+  const gpus = value.gpus || []
+  for (const gpu of gpus) {
+    if (!isRecord(gpu) || !gpu.name || typeof gpu.name !== 'string'
+        || ['util', 'mem_used', 'mem_total', 'temp', 'power'].some(key => !nullableNumber(gpu[key]))) {
+      invalidPanelPayload()
+    }
+  }
+  if (value.available && !Array.isArray(value.gpus)) invalidPanelPayload()
+  return { available: value.available, gpus }
+}
 
 export function useComputeTargets() {
   return useScopedResource(signal => get('/api/compute', { signal }).then(computeCatalog),
